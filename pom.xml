@@ -1,35 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.0</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-	<groupId>com.github.180254</groupId>
-	<artifactId>issue</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
-	<properties>
-		<java.version>26</java.version>
-	</properties>
-	<dependencies>
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.github.180254</groupId>
+  <artifactId>issue</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+
+  <name>issue</name>
+  <description>Minimal reproducer for the throughput regression (gh-36334)</description>
+
+  <properties>
+    <java.version>25</java.version>
+  </properties>
+
+  <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc</artifactId>
@@ -40,30 +32,102 @@
         </exclusion>
       </exclusions>
     </dependency>
+  </dependencies>
 
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-jetty</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.jetty.http2</groupId>
-      <artifactId>jetty-http2-server</artifactId>
-    </dependency>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
 
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-webmvc-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
+  <profiles>
+    <!-- ============ Servlet container (pick exactly one; tomcat is default) ============ -->
+    <profile>
+      <id>tomcat</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-tomcat</artifactId>
+        </dependency>
+      </dependencies>
+    </profile>
 
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
-		</plugins>
-	</build>
+    <profile>
+      <id>jetty</id>
+      <dependencies>
+        <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-jetty</artifactId>
+        </dependency>
+        <dependency>
+          <groupId>org.eclipse.jetty.http2</groupId>
+          <artifactId>jetty-http2-server</artifactId>
+        </dependency>
+      </dependencies>
+    </profile>
 
+    <!-- ============ Reverted ServletServerHttpResponse (response side of gh-36334) ============ -->
+    <!-- Adds src/shadowServletServerHttpResponse/java so the 7.0.4 class loads from the app ahead of the spring-web jar. -->
+    <profile>
+      <id>shadowServletServerHttpResponse</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.0</version>
+            <executions>
+              <execution>
+                <id>add-shadowServletServerHttpResponse-source</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src/shadowServletServerHttpResponse/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- ============ Reverted ServletServerHttpRequest (request side of gh-36334) ============ -->
+    <!-- Adds src/shadowServletServerHttpRequest/java so the 7.0.4 class loads from the app ahead of the spring-web jar. -->
+    <profile>
+      <id>shadowServletServerHttpRequest</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.1</version>
+            <executions>
+              <execution>
+                <id>add-shadowServletServerHttpRequest-source</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src/shadowServletServerHttpRequest/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
