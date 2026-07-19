@@ -19,7 +19,7 @@
 #   VERSIONS="7.0.4 7.0.5" ./repro-latency.sh
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/"
 
 VERSIONS="${VERSIONS:-7.0.4 7.0.5}"
 BYTES="${BYTES:-4096}"
@@ -135,15 +135,15 @@ for entry in $VERSIONS; do
 
   echo "### building: jetty version=$version profiles=$profiles ###"
   # shellcheck disable=SC2086  # MVN_FLAGS is intentionally word-split (e.g. "-o")
-  if ! ./mvnw ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
+  if ! ../mvnw ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
     echo "  BUILD FAILED - skipping"
     continue
   fi
 
-  java -jar "$JAR" --server.port="$APP_PORT" >"part2/latency-${entry}.log" 2>&1 &
+  java -jar "$JAR" --server.port="$APP_PORT" >"latency-${entry}.log" 2>&1 &
   server_pid=$!
   if ! wait_for_up "http://127.0.0.1:${APP_PORT}/endstream?bytes=16"; then
-    echo "  SERVER DID NOT START - see part2/latency-${entry}.log"
+    echo "  SERVER DID NOT START - see latency-${entry}.log"
     kill "$server_pid" 2>/dev/null || true
     continue
   fi

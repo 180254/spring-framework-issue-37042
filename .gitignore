@@ -33,5 +33,5 @@ build/
 .vscode/
 .tmp/
 
-### matrix.sh per-run server logs ###
-run-*.log
+### other ###
+*.log

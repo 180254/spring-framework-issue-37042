@@ -17,7 +17,7 @@
 #   CONTAINERS=jetty VERSIONS="7.0.4 7.0.5" ./repro-frames.sh
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/"
 
 CONTAINERS="${CONTAINERS:-jetty tomcat}"
 VERSIONS="${VERSIONS:-7.0.4 7.0.5 7.0.8 7.0.8+shadowServletServerHttpResponse}"
@@ -77,13 +77,13 @@ for container in $CONTAINERS; do
 
     echo "### building: container=$container version=$version profiles=$profiles ###"
     # shellcheck disable=SC2086  # MVN_FLAGS is intentionally word-split (e.g. "-o")
-    if ! ./mvnw ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
+    if ! ../mvnw ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
       echo "  BUILD FAILED - skipping"
       printf '%s\t%s\t%s\n' "$container" "$entry" "build-failed" >>"$RESULTS"
       continue
     fi
 
-    java -jar "$JAR" --server.port="$PORT" >"part2/frames-${container}-${entry}.log" 2>&1 &
+    java -jar "$JAR" --server.port="$PORT" >"frames-${container}-${entry}.log" 2>&1 &
     server_pid=$!
     if wait_for_up; then
       trace="$(frame_trace)"
@@ -93,7 +93,7 @@ for container in $CONTAINERS; do
       echo "  => $verdict"
       printf '%s\t%s\t%s\n' "$container" "$entry" "$verdict" >>"$RESULTS"
     else
-      echo "  SERVER DID NOT START - see part2/frames-${container}-${entry}.log"
+      echo "  SERVER DID NOT START - see frames-${container}-${entry}.log"
       printf '%s\t%s\t%s\n' "$container" "$entry" "no-start" >>"$RESULTS"
     fi
     kill "$server_pid" 2>/dev/null || true

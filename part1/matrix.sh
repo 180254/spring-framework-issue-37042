@@ -155,7 +155,7 @@ for container in $CONTAINERS; do
 
     echo "### building: container=$container version=$version profiles=$profiles ###"
     # shellcheck disable=SC2086  # MVN_FLAGS is intentionally word-split (e.g. "-o")
-    if ! ./mvnw ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
+    if ! ../mvnw ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
       echo "  BUILD FAILED (version likely incompatible with Spring Boot 4.1.0) - skipping"
       emit_rows "build-failed"
       continue
