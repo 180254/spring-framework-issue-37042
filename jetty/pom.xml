@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.github.180254</groupId>
+  <artifactId>jetty-content-length-repro</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+
+  <name>jetty-content-length-repro</name>
+  <description>Plain-servlet reproducer: Content-Length via setHeader vs setContentLengthLong, on Jetty and Tomcat HTTP/2</description>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <jetty.version>12.1.11</jetty.version>
+    <tomcat.version>11.0.24</tomcat.version>
+    <slf4j.version>2.0.17</slf4j.version>
+    <!-- Directory with the per-container main class, overridden by each profile; the
+         default matches the activeByDefault jetty-ee11 profile so the property resolves
+         even when all profiles are explicitly disabled. -->
+    <container.main.dir>src/jetty-ee11/java</container.main.dir>
+  </properties>
+
+  <profiles>
+    <!-- Same servlets (src/main/java), container picked by profile. jetty-ee11 is the
+         default; activate -Pjetty-ee10 or -Ptomcat for the comparison runs. -->
+    <profile>
+      <id>jetty-ee11</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <container.main.dir>src/jetty-ee11/java</container.main.dir>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>org.eclipse.jetty.ee11</groupId>
+          <artifactId>jetty-ee11-servlet</artifactId>
+          <version>${jetty.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.eclipse.jetty.http2</groupId>
+          <artifactId>jetty-http2-server</artifactId>
+          <version>${jetty.version}</version>
+        </dependency>
+        <!-- Jetty logs through SLF4J; without a provider, server-<container>.log would
+             contain only the SLF4J NOP notice and no Jetty diagnostics. -->
+        <dependency>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-simple</artifactId>
+          <version>${slf4j.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <profile>
+      <id>jetty-ee10</id>
+      <properties>
+        <container.main.dir>src/jetty-ee10/java</container.main.dir>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>org.eclipse.jetty.ee10</groupId>
+          <artifactId>jetty-ee10-servlet</artifactId>
+          <version>${jetty.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.eclipse.jetty.http2</groupId>
+          <artifactId>jetty-http2-server</artifactId>
+          <version>${jetty.version}</version>
+        </dependency>
+        <!-- See the jetty-ee11 profile note. -->
+        <dependency>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-simple</artifactId>
+          <version>${slf4j.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <profile>
+      <id>tomcat</id>
+      <properties>
+        <container.main.dir>src/tomcat/java</container.main.dir>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.tomcat.embed</groupId>
+          <artifactId>tomcat-embed-core</artifactId>
+          <version>${tomcat.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>add-container-main-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${container.main.dir}</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

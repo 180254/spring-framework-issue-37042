@@ -30,9 +30,8 @@ the final body write is not marked *last*:
   separate empty `DATA(0, END_STREAM)` (`HttpOutput.complete()` writes an empty last buffer).
 
 The response headers on the wire are identical in both cases; only the DATA framing and flush
-pattern differ. Side effects beyond the extra frame: Spring's trailing `flush()` calls become
-real network flushes instead of no-ops, and Jetty's "insufficient content written" truncation
-guard (`HttpOutput.isContentIncomplete`) can no longer trigger.
+pattern differ. A further side effect beyond the extra frame: Spring's trailing `flush()`
+calls become real network flushes instead of no-ops.
 
 ## Why this costs ~200 ms per response behind a proxy (our production observation)
 
@@ -83,7 +82,7 @@ Measured impact in our tests: a sequential closed-loop client drops from ~5-7 ms
 1. **A proxy that corks the response tail** (haproxy in our case; the defect itself needs no
    proxy - see below). Why: with a direct h2 connection the extra empty END_STREAM frame
    arrives microseconds after the body, so the client sees no added latency (the defect is
-   then only an extra frame, an extra flush/syscall and the disabled truncation guard). The
+   then only an extra frame and an extra flush/syscall). The
    proxy converts the split into ~200 ms because the CL-framed response tail is corked and
    the EOM produces no bytes to uncork it. Verified on haproxy 2.2, 2.8.22, 2.8.26, 3.0.25,
    3.2.21, 3.3.12 and 3.4.2 (all cork; `option http-no-delay` disables it; over TLS the cork
