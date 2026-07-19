@@ -39,13 +39,19 @@ docker info >/dev/null 2>&1 || die "Docker daemon is unavailable"
 
 cd "$SCRIPT_DIR"
 
+unused_port() {
+  local base="$1" span="$2" port
+  while port=$((base + RANDOM % span)) && (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do :; done
+  echo "$port"
+}
+
 VERSIONS="${VERSIONS:-7.0.4 7.0.5}"
 BYTES="${BYTES:-4096}"
 ASYNC="${ASYNC:-true}"
 REQUESTS="${REQUESTS:-20}"
-APP_PORT="${APP_PORT:-8080}"
-PROXY_PORT="${PROXY_PORT:-9090}"       # haproxy defaults (MSG_MORE active)
-PROXY_ND_PORT="${PROXY_ND_PORT:-9091}" # haproxy with "option http-no-delay"
+APP_PORT="${APP_PORT:-$(unused_port 20000 10000)}"
+PROXY_PORT="${PROXY_PORT:-$(unused_port 30000 10000)}"       # haproxy defaults (MSG_MORE active)
+PROXY_ND_PORT="${PROXY_ND_PORT:-$(unused_port 40000 10000)}" # haproxy with "option http-no-delay"
 HAPROXY_IMAGE="${HAPROXY_IMAGE:-haproxy:3.5-dev}"
 JAR="target/issue-0.0.1-SNAPSHOT.jar"
 RESULTS="$(mktemp)"

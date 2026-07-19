@@ -37,13 +37,19 @@ docker info >/dev/null 2>&1 || die "Docker daemon is unavailable"
 
 cd "$SCRIPT_DIR"
 
+unused_port() {
+  local base="$1" span="$2" port
+  while port=$((base + RANDOM % span)) && (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do :; done
+  echo "$port"
+}
+
 HAPROXY_IMAGE="${HAPROXY_IMAGE:-haproxy:3.5-dev}"
 BYTES="${BYTES:-4096}"
 GAP_MS="${GAP_MS:-5}"
 REQUESTS="${REQUESTS:-15}"
-BACKEND_PORT="${BACKEND_PORT:-18080}"
-PROXY_PORT="${PROXY_PORT:-19090}"       # haproxy defaults (MSG_MORE active)
-PROXY_ND_PORT="${PROXY_ND_PORT:-19091}" # haproxy with "option http-no-delay"
+BACKEND_PORT="${BACKEND_PORT:-$(unused_port 20000 10000)}"
+PROXY_PORT="${PROXY_PORT:-$(unused_port 30000 10000)}"       # haproxy defaults (MSG_MORE active)
+PROXY_ND_PORT="${PROXY_ND_PORT:-$(unused_port 40000 10000)}" # haproxy with "option http-no-delay"
 RESULTS="$(mktemp)"
 HAPROXY_DIR="$(mktemp -d)"
 HAPROXY_NAME="haproxy-cork-repro"

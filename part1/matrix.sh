@@ -36,6 +36,12 @@ CLK_TCK="$(getconf CLK_TCK)" || die "getconf CLK_TCK failed"
 
 cd "$SCRIPT_DIR"
 
+unused_port() {
+  local base="$1" span="$2" port
+  while port=$((base + RANDOM % span)) && (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do :; done
+  echo "$port"
+}
+
 CONTAINERS="${CONTAINERS:-tomcat jetty}"
 VERSIONS="${VERSIONS:-7.0.4 7.0.5 7.0.8 7.0.8+shadowServletServerHttpRequest 7.0.8+shadowServletServerHttpResponse 7.0.8+shadowServletServerHttpRequest,shadowServletServerHttpResponse}"
 PROTOCOLS="${PROTOCOLS:-h1 h2}"
@@ -54,7 +60,7 @@ else
   WARMUP_N="${WARMUP_N:-100000}"
   MEASURE_N="${MEASURE_N:-300000}"
 fi
-PORT="${PORT:-8080}"
+PORT="${PORT:-$(unused_port 20000 40000)}"
 JAR="target/issue-0.0.1-SNAPSHOT.jar"
 URL="http://127.0.0.1:${PORT}/repro?responseHeaderCount=${RESPONSE_HEADER_COUNT}&responseHeaderReads=${RESPONSE_HEADER_READS}&requestHeaderReads=${REQUEST_HEADER_READS}"
 RESULTS="$(mktemp)"

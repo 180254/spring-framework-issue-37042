@@ -35,8 +35,14 @@ if [[ ! "$javac_version" =~ ^javac\ ([0-9]+) ]] || ((BASH_REMATCH[1] < 17)); the
 
 cd "$SCRIPT_DIR"
 
+unused_port() {
+  local base="$1" span="$2" port
+  while port=$((base + RANDOM % span)) && (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do :; done
+  echo "$port"
+}
+
 CONTAINERS="${CONTAINERS:-jetty-ee11 jetty-ee10 tomcat}"
-PORT="${PORT:-8080}"
+PORT="${PORT:-$(unused_port 20000 40000)}"
 
 # Integer.getInteger in the mains silently falls back to 8080 on malformed values and
 # parses leading-zero values as octal, so the shell and the server would disagree about
