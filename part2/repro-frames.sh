@@ -13,11 +13,26 @@
 # fetches /endstream over h2c with nghttp -v, prints and classifies the received frames.
 # Version tokens support "+profile" suffixes, e.g. "7.0.8+shadowServletServerHttpResponse".
 #
-# Requires nghttp, a JDK, curl. Example:
+# Requires nghttp, curl, JDK 25+, and the bundled Maven wrapper. Example:
 #   CONTAINERS=jetty VERSIONS="7.0.4 7.0.5" ./repro-frames.sh
 set -euo pipefail
 
-cd "$(dirname "$0")/"
+SCRIPT_DIR="$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+die() { echo "dependency check failed: $*" >&2; exit 127; }
+need() { command -v "$1" >/dev/null 2>&1 || die "'$1' was not found in PATH"; }
+
+for tool in awk curl grep java javac mktemp nghttp rm sleep; do
+  need "$tool"
+done
+MAVEN="$SCRIPT_DIR/../mvnw"
+[ -x "$MAVEN" ] || die "Maven wrapper '$MAVEN' is missing or not executable"
+java_version="$(java -version 2>&1)"
+if [[ ! "$java_version" =~ version\ \"([0-9]+) ]] || ((BASH_REMATCH[1] < 25)); then die "JDK 25+ is required"; fi
+javac_version="$(javac -version 2>&1)"
+if [[ ! "$javac_version" =~ ^javac\ ([0-9]+) ]] || ((BASH_REMATCH[1] < 25)); then die "JDK 25+ is required"; fi
+"$MAVEN" --version >/dev/null 2>&1 || die "Maven could not run"
+
+cd "$SCRIPT_DIR"
 
 CONTAINERS="${CONTAINERS:-jetty tomcat}"
 VERSIONS="${VERSIONS:-7.0.4 7.0.5 7.0.8 7.0.8+shadowServletServerHttpResponse}"
@@ -77,7 +92,7 @@ for container in $CONTAINERS; do
 
     echo "### building: container=$container version=$version profiles=$profiles ###"
     # shellcheck disable=SC2086  # MVN_FLAGS is intentionally word-split (e.g. "-o")
-    if ! ../mvnw ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
+    if ! "$MAVEN" ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
       echo "  BUILD FAILED - skipping"
       printf '%s\t%s\t%s\n' "$container" "$entry" "build-failed" >>"$RESULTS"
       continue

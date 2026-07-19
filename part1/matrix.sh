@@ -12,11 +12,29 @@
 # A version token may carry Maven profiles as "+" suffixes: "7.0.8+shadowServletServerHttpResponse" reverts
 # that class over 7.0.8; "+shadowServletServerHttpRequest" reverts the request side; combine to revert both.
 #
-# Requires h2load, a JDK, taskset, Linux. Example:
+# Requires h2load, JDK 25+, the bundled Maven wrapper, taskset, Linux. Example:
 #   CONTAINERS=jetty VERSIONS="7.0.4 7.0.5 7.0.8+shadowServletServerHttpResponse" PROTOCOLS=h2 ./matrix.sh
 set -euo pipefail
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+die() { echo "dependency check failed: $*" >&2; exit 127; }
+need() { command -v "$1" >/dev/null 2>&1 || die "'$1' was not found in PATH"; }
+
+[[ "$OSTYPE" == linux* ]] || die "Linux is required (found $OSTYPE)"
+for tool in awk cat curl cut date fuser getconf grep h2load head java javac mktemp rm seq sleep ss taskset tr; do
+  need "$tool"
+done
+[[ "$(h2load --help 2>&1)" == *--h1* ]] || die "h2load with HTTP/1.1 support is required"
+MAVEN="$SCRIPT_DIR/../mvnw"
+[ -x "$MAVEN" ] || die "Maven wrapper '$MAVEN' is missing or not executable"
+java_version="$(java -version 2>&1)"
+if [[ ! "$java_version" =~ version\ \"([0-9]+) ]] || ((BASH_REMATCH[1] < 25)); then die "JDK 25+ is required"; fi
+javac_version="$(javac -version 2>&1)"
+if [[ ! "$javac_version" =~ ^javac\ ([0-9]+) ]] || ((BASH_REMATCH[1] < 25)); then die "JDK 25+ is required"; fi
+"$MAVEN" --version >/dev/null 2>&1 || die "Maven could not run"
+CLK_TCK="$(getconf CLK_TCK)" || die "getconf CLK_TCK failed"
+
+cd "$SCRIPT_DIR"
 
 CONTAINERS="${CONTAINERS:-tomcat jetty}"
 VERSIONS="${VERSIONS:-7.0.4 7.0.5 7.0.8 7.0.8+shadowServletServerHttpRequest 7.0.8+shadowServletServerHttpResponse 7.0.8+shadowServletServerHttpRequest,shadowServletServerHttpResponse}"
@@ -39,7 +57,6 @@ fi
 PORT="${PORT:-8080}"
 JAR="target/issue-0.0.1-SNAPSHOT.jar"
 URL="http://127.0.0.1:${PORT}/repro?responseHeaderCount=${RESPONSE_HEADER_COUNT}&responseHeaderReads=${RESPONSE_HEADER_READS}&requestHeaderReads=${REQUEST_HEADER_READS}"
-CLK_TCK="$(getconf CLK_TCK)"
 RESULTS="$(mktemp)"
 
 # Count logical CPUs in a taskset spec like "0-1", "0", "2-9,12".
@@ -155,7 +172,7 @@ for container in $CONTAINERS; do
 
     echo "### building: container=$container version=$version profiles=$profiles ###"
     # shellcheck disable=SC2086  # MVN_FLAGS is intentionally word-split (e.g. "-o")
-    if ! ../mvnw ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
+    if ! "$MAVEN" ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
       echo "  BUILD FAILED (version likely incompatible with Spring Boot 4.1.0) - skipping"
       emit_rows "build-failed"
       continue

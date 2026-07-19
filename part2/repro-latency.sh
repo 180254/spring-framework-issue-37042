@@ -15,11 +15,29 @@
 #     bytes sent without MSG_MORE and flushes the socket; also both Spring versions frame it
 #     identically, as neither can call setContentLengthLong without a Content-Length).
 #
-# Requires docker (HAPROXY_IMAGE, default haproxy:2.8), curl, a JDK. Jetty only. Example:
+# Requires docker (HAPROXY_IMAGE, default haproxy:2.8), curl 7.33+, JDK 25+,
+# and the bundled Maven wrapper. Jetty only. Example:
 #   VERSIONS="7.0.4 7.0.5" ./repro-latency.sh
 set -euo pipefail
 
-cd "$(dirname "$0")/"
+SCRIPT_DIR="$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+die() { echo "dependency check failed: $*" >&2; exit 127; }
+need() { command -v "$1" >/dev/null 2>&1 || die "'$1' was not found in PATH"; }
+
+for tool in awk curl docker java javac mktemp rm seq sleep sort tail; do
+  need "$tool"
+done
+MAVEN="$SCRIPT_DIR/../mvnw"
+[ -x "$MAVEN" ] || die "Maven wrapper '$MAVEN' is missing or not executable"
+java_version="$(java -version 2>&1)"
+if [[ ! "$java_version" =~ version\ \"([0-9]+) ]] || ((BASH_REMATCH[1] < 25)); then die "JDK 25+ is required"; fi
+javac_version="$(javac -version 2>&1)"
+if [[ ! "$javac_version" =~ ^javac\ ([0-9]+) ]] || ((BASH_REMATCH[1] < 25)); then die "JDK 25+ is required"; fi
+"$MAVEN" --version >/dev/null 2>&1 || die "Maven could not run"
+[[ "$(curl --help all 2>/dev/null)" == *--http1.1* ]] || die "curl 7.33+ is required"
+docker info >/dev/null 2>&1 || die "Docker daemon is unavailable"
+
+cd "$SCRIPT_DIR"
 
 VERSIONS="${VERSIONS:-7.0.4 7.0.5}"
 BYTES="${BYTES:-4096}"
@@ -135,7 +153,7 @@ for entry in $VERSIONS; do
 
   echo "### building: jetty version=$version profiles=$profiles ###"
   # shellcheck disable=SC2086  # MVN_FLAGS is intentionally word-split (e.g. "-o")
-  if ! ../mvnw ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
+  if ! "$MAVEN" ${MVN_FLAGS:-} -q clean package -DskipTests -P"$profiles" -Dspring-framework.version="$version" >/dev/null 2>&1; then
     echo "  BUILD FAILED - skipping"
     continue
   fi

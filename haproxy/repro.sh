@@ -17,14 +17,25 @@
 #   merged     x default        -> fast (END_STREAM arrives with the body; no split)
 #
 # Requires docker (HAPROXY_IMAGE, default haproxy:3.5-dev; any 2.x/3.x reproduces),
-# python3, curl. Docker must provide real host networking (native Linux; Docker
+# Python 3.9+, curl 7.33+. Docker must provide real host networking (native Linux; Docker
 # Desktop/rootless run --network host inside a VM/namespace and will not work).
 # BYTES is capped at 16384: the scripted backend sends the body as a single h2 DATA
 # frame and must not exceed the peer's default SETTINGS_MAX_FRAME_SIZE. Example:
 #   HAPROXY_IMAGE=haproxy:2.8 ./repro.sh
 set -euo pipefail
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+die() { echo "dependency check failed: $*" >&2; exit 127; }
+need() { command -v "$1" >/dev/null 2>&1 || die "'$1' was not found in PATH"; }
+
+for tool in awk curl docker mktemp python3 rm seq sleep sort tail; do
+  need "$tool"
+done
+python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 9))' || die "Python 3.9+ is required"
+[[ "$(curl --help all 2>/dev/null)" == *--http1.1* ]] || die "curl 7.33+ is required"
+docker info >/dev/null 2>&1 || die "Docker daemon is unavailable"
+
+cd "$SCRIPT_DIR"
 
 HAPROXY_IMAGE="${HAPROXY_IMAGE:-haproxy:3.5-dev}"
 BYTES="${BYTES:-4096}"

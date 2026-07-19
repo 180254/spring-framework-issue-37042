@@ -11,13 +11,29 @@
 #   tomcat:
 #     both endpoints    -> HEADERS + DATA(4096, END_STREAM)              (single-flush)
 #
-# Requires nghttp, curl, a JDK, maven (uses ../mvnw when available); Linux/macOS only
+# Requires nghttp, curl, JDK 17+, and the bundled Maven wrapper;
+# Linux/macOS only
 # (the classpath is joined with ':'). Server output goes to server-<container>.log
 # (kept for inspection). Example:
 #   ./repro.sh
 set -euo pipefail
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+die() { echo "dependency check failed: $*" >&2; exit 127; }
+need() { command -v "$1" >/dev/null 2>&1 || die "'$1' was not found in PATH"; }
+
+for tool in awk cat curl grep java javac mktemp nghttp rm sleep; do
+  need "$tool"
+done
+MVN="$SCRIPT_DIR/../mvnw"
+[ -x "$MVN" ] || die "Maven wrapper '$MVN' is missing or not executable"
+java_version="$(java -version 2>&1)"
+if [[ ! "$java_version" =~ version\ \"([0-9]+) ]] || ((BASH_REMATCH[1] < 17)); then die "JDK 17+ is required"; fi
+javac_version="$(javac -version 2>&1)"
+if [[ ! "$javac_version" =~ ^javac\ ([0-9]+) ]] || ((BASH_REMATCH[1] < 17)); then die "JDK 17+ is required"; fi
+"$MVN" --version >/dev/null 2>&1 || die "Maven could not run"
+
+cd "$SCRIPT_DIR"
 
 CONTAINERS="${CONTAINERS:-jetty-ee11 jetty-ee10 tomcat}"
 PORT="${PORT:-8080}"
@@ -37,11 +53,6 @@ if [ "$PORT" -gt 65535 ]; then
 fi
 
 RESULTS="$(mktemp)"
-
-MVN="../mvnw"
-if [ ! -x "$MVN" ]; then
-  MVN="mvn"
-fi
 
 server_pid=""
 cleanup() {
